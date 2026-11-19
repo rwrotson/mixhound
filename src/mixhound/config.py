@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -49,6 +49,78 @@ class ApiSettings(BaseModel):
     )
 
 
+class HttpSettings(BaseModel):
+    """Outgoing HTTP requests for public pages and audio previews."""
+
+    timeout: float = Field(default=5.0, gt=0, description="Seconds per request attempt")
+    user_agent: str = Field(default="mixhound/0.1", description="User-Agent of page fetches")
+    max_retries: int = Field(
+        default=2, ge=0, description="Retries of an unreachable host or a transient status"
+    )
+    backoff_base: float = Field(default=0.5, ge=0, description="First retry delay in seconds")
+    backoff_cap: float = Field(default=4.0, ge=0, description="Longest backoff delay in seconds")
+    retry_after_cap: float = Field(
+        default=5.0, ge=0, description="Longest honoured Retry-After delay in seconds"
+    )
+
+
+class DeadwaxSettings(BaseModel):
+    """Track lookups through deadwax; its cache lives under the data directory."""
+
+    contact: str = Field(
+        default="https://github.com/rwrotson/mixhound",
+        description="Contact URL or address sent to catalogs in the User-Agent",
+    )
+    adapter_timeout: float = Field(
+        default=30.0, gt=0, description="Seconds one deadwax source may take"
+    )
+    sources: list[str] | None = Field(
+        default=None, description="Sources deadwax may ask; unset uses deadwax defaults"
+    )
+    cache_enabled: bool = Field(default=True, description="Cache deadwax responses on disk")
+    lastfm_api_key: SecretStr | None = Field(default=None, description="Last.fm API key")
+    discogs_token: SecretStr | None = Field(
+        default=None, description="Discogs personal token; needed for Discogs search"
+    )
+    youtube_api_key: SecretStr | None = Field(default=None, description="YouTube Data API key")
+    spotify_client_id: SecretStr | None = Field(default=None, description="Spotify client ID")
+    spotify_client_secret: SecretStr | None = Field(
+        default=None, description="Spotify client secret"
+    )
+
+
+class SearchSettings(BaseModel):
+    """Web search for the research agents."""
+
+    brave_api_key: SecretStr | None = Field(
+        default=None, description="Brave Search API key; web search is off without it"
+    )
+    results: int = Field(default=10, ge=1, le=20, description="Results per web search")
+    timeout: float = Field(default=10.0, gt=0, description="Seconds per web search")
+
+
+class StorageSettings(BaseModel):
+    """Where sessions, runs and diagnostics are kept."""
+
+    backend: Literal["memory", "files"] = Field(
+        default="files", description="memory keeps nothing across restarts; files uses data_dir"
+    )
+
+
+class QueueSettings(BaseModel):
+    """The in-process run queue."""
+
+    max_pending: int = Field(
+        default=20, ge=1, description="Runs that may wait behind the active one"
+    )
+
+
+class CacheSettings(BaseModel):
+    """The lookup cache of page checks and audio features."""
+
+    enabled: bool = Field(default=True, description="Cache page checks and audio features on disk")
+
+
 class Settings(BaseSettings):
     """Load application settings from MIXHOUND_* variables and .env."""
 
@@ -60,8 +132,20 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    data_dir: Path = Field(
+        default=Path("data"), description="Directory of stored runs, caches and diagnostics"
+    )
+    skills_dir: Path = Field(
+        default=Path(".agents/skills"), description="Directory of agent skills"
+    )
     log: LogSettings = Field(default_factory=LogSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
+    http: HttpSettings = Field(default_factory=HttpSettings)
+    deadwax: DeadwaxSettings = Field(default_factory=DeadwaxSettings)
+    search: SearchSettings = Field(default_factory=SearchSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    queue: QueueSettings = Field(default_factory=QueueSettings)
+    cache: CacheSettings = Field(default_factory=CacheSettings)
 
 
 def nested_model(field: FieldInfo) -> type[BaseModel] | None:

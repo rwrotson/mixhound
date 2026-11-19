@@ -9,6 +9,9 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0 PYTHONUNBUFFER
 
 # Keep dependency installation cached across source-only changes.
 FROM base AS builder
+# uv clones the deadwax git dependency.
+RUN apt-get update && apt-get install --yes --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
@@ -21,7 +24,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM base AS development
 ENV PATH="/app/.venv/bin:$PATH" MIXHOUND_SKILLS_DIR=/app/.agents/skills
 # ffmpeg decodes preview clips for audio similarity.
-RUN apt-get update && apt-get install --yes --no-install-recommends ffmpeg \
+# git lets uv clone the deadwax git dependency.
+RUN apt-get update && apt-get install --yes --no-install-recommends ffmpeg git \
     && rm -rf /var/lib/apt/lists/*
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -48,7 +52,7 @@ RUN python -m pip uninstall --yes --root-user-action=ignore pip \
     && useradd --system --uid 10001 --create-home --home-dir /home/app app \
     && mkdir -p /data && chown 10001 /data
 ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    HOME=/home/app MIXHOUND_SKILLS_DIR=/app/.agents/skills
+    HOME=/home/app MIXHOUND_SKILLS_DIR=/app/.agents/skills MIXHOUND_DATA_DIR=/data
 USER 10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \

@@ -11,8 +11,10 @@ license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "deadwax",
     "fastapi>=0.120.0",
     "httpx>=0.28.1",
+    "numpy>=2.5.5",
     "pydantic>=2.12.0",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0.3",
@@ -35,6 +37,7 @@ dev = [
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.1.0",
     "pytest-randomly>=5.0.0",
+    "pytest-socket>=0.8.1",
     "pytest-timeout>=2.4.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.16.10",
@@ -59,10 +62,15 @@ constraint-dependencies = [
 module-name = "mixhound"
 module-root = "src"
 
+[tool.uv.sources]
+deadwax = { git = "https://github.com/rwrotson/deadwax", tag = "v0.1.0" }
+
 # PYTEST -----------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --tb=short --strict-markers --strict-config -n auto"
+# Sockets are blocked so no test reaches the network; asyncio needs unix socket pairs.
+addopts = "-ra --tb=short --strict-markers --strict-config -n auto --disable-socket --allow-unix-socket -m 'not live'"
+markers = ["live: needs network and real services; run with `pytest -m live`"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 xfail_strict = true
@@ -115,7 +123,8 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["PLR2004", "ARG", "S101", "S105", "S106", "D101", "D102", "D103"]
+# ASYNC240: async tests inspect the files an adapter wrote; blocking there is harmless.
+"tests/**" = ["PLR2004", "ARG", "S101", "S105", "S106", "D101", "D102", "D103", "ASYNC240"]
 "evals/**" = ["PLR2004", "S101", "D101", "D102", "D103"]
 # Package __init__ files re-export from sibling modules.
 "src/**/__init__.py" = ["TID252"]
@@ -200,6 +209,17 @@ forbidden_modules = [
     "mixhound.api", "mixhound.agents", "mixhound.tools", "mixhound.services",
     "mixhound.memory", "mixhound.infrastructure", "mixhound.container",
 ]
+
+[[tool.importlinter.contracts]]
+name = "Only infrastructure talks to deadwax"
+type = "forbidden"
+source_modules = [
+    "mixhound.main", "mixhound.container", "mixhound.config", "mixhound.api", "mixhound.agents",
+    "mixhound.tools", "mixhound.services", "mixhound.memory", "mixhound.models",
+]
+forbidden_modules = ["deadwax"]
+# Only direct imports: the container reaches deadwax through the infrastructure adapter.
+allow_indirect_imports = true
 
 # POETHEPOET -------------------------------------------------------------------
 [tool.poe.tasks]
