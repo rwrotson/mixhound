@@ -221,3 +221,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# mixhound
+requirements-audit.txt
+/data/
+/logs/

@@ -1,0 +1,22 @@
+services:
+  mixhound:
+    build:
+      context: .
+      target: production
+    image: ${IMAGE_REF:-mixhound:dev}
+    init: true
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MIXHOUND_PORT:-8000}:8000"
+    volumes:
+      - mixhound-data:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  mixhound-data:
