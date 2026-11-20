@@ -12,7 +12,8 @@ class ReferenceFacts:
     artist_mbids: tuple[str, ...] = ()
     tags: list[str] = field(default_factory=list)
     audio: AudioFeatures | None = None
-    deezer_url: str | None = None
+    # The catalog page whose preview clip measured the reference.
+    preview_url: str | None = None
 
 
 @dataclass

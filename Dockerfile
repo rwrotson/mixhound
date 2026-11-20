@@ -52,7 +52,8 @@ RUN python -m pip uninstall --yes --root-user-action=ignore pip \
     && useradd --system --uid 10001 --create-home --home-dir /home/app app \
     && mkdir -p /data && chown 10001 /data
 ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    HOME=/home/app MIXHOUND_SKILLS_DIR=/app/.agents/skills MIXHOUND_DATA_DIR=/data
+    HOME=/home/app MIXHOUND_SKILLS_DIR=/app/.agents/skills MIXHOUND_DATA_DIR=/data \
+    NUMBA_CACHE_DIR=/data/numba-cache
 USER 10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \

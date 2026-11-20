@@ -5,9 +5,9 @@ from pathlib import Path
 
 import numpy as np
 
+from mixhound.services.audio import SAMPLE_RATE
 from mixhound.services.ports import Samples
 
-SAMPLE_RATE = 22_050
 CLIP_SECONDS = 30
 MIN_SECONDS = 5
 DECODE_TIMEOUT = 30
