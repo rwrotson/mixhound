@@ -1,7 +1,7 @@
 # PROJECT ----------------------------------------------------------------------
 [project]
 name = "mixhound"
-version = "0.1.0"
+version = "0.1.1"
 description = "Crate-digging agent: finds recordings similar to weighted references, verifies them against catalogs, and returns playable sources"
 authors = [
     { name = "Igor Lashkov", email = "rwrotson@yandex.ru" },
