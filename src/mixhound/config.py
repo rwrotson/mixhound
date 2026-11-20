@@ -99,6 +99,33 @@ class SearchSettings(BaseModel):
     timeout: float = Field(default=10.0, gt=0, description="Seconds per web search")
 
 
+class LlmSettings(BaseModel):
+    """Language models of the research agents; a run may name its own model."""
+
+    model: str = Field(
+        default="claude-code:sonnet",
+        description="Default model: claude-code:<m>, openai-codex:<m> or a pydantic-ai name",
+    )
+    helper_model: str | None = Field(
+        default=None, description="Default model of helper calls; unset uses the default model"
+    )
+    fallback_model: str | None = Field(
+        default=None, description="Model tried when the chosen one fails, e.g. openrouter:<model>"
+    )
+    openrouter_api_key: SecretStr | None = Field(
+        default=None, description="OpenRouter API key for openrouter: models"
+    )
+    claude_cli_path: Path | None = Field(
+        default=None, description="Claude Code executable; unset uses the SDK's bundled CLI"
+    )
+    claude_idle_timeout: float = Field(
+        default=300.0, gt=0, description="Seconds a Claude Code response may stay silent"
+    )
+    claude_allow_usage_credits: bool = Field(
+        default=False, description="Accept Claude Code requests billed to paid usage credits"
+    )
+
+
 class StorageSettings(BaseModel):
     """Where sessions, runs and diagnostics are kept."""
 
@@ -143,6 +170,7 @@ class Settings(BaseSettings):
     http: HttpSettings = Field(default_factory=HttpSettings)
     deadwax: DeadwaxSettings = Field(default_factory=DeadwaxSettings)
     search: SearchSettings = Field(default_factory=SearchSettings)
+    llm: LlmSettings = Field(default_factory=LlmSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     queue: QueueSettings = Field(default_factory=QueueSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)

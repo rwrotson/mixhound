@@ -11,12 +11,17 @@ license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "anthropic>=2.11.0",
+    "anyio>=4.16.0",
+    "claude-agent-sdk>=0.2.186",
     "deadwax",
     "fastapi>=0.120.0",
     "httpx>=0.28.1",
+    "httpx2>=2.16.2",
     "librosa>=1.0.1",
     "numpy>=2.5.5",
     "pydantic>=2.12.0",
+    "pydantic-ai-slim[anthropic,openai,openrouter]>=2.71.0",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0.3",
     "structlog>=26.1.0",
@@ -29,7 +34,6 @@ mixhound = "mixhound.main:serve"
 [dependency-groups]
 dev = [
     "commitizen>=4.19.2",
-    "httpx2>=2.13.1",
     "import-linter>=2.15",
     "mypy>=2.4.0",
     "poethepoet>=0.48.0",
@@ -220,6 +224,17 @@ source_modules = [
 ]
 forbidden_modules = ["deadwax"]
 # Only direct imports: the container reaches deadwax through the infrastructure adapter.
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Only infrastructure talks to the Claude Agent SDK"
+type = "forbidden"
+source_modules = [
+    "mixhound.main", "mixhound.container", "mixhound.config", "mixhound.api", "mixhound.agents",
+    "mixhound.tools", "mixhound.services", "mixhound.memory", "mixhound.models",
+]
+forbidden_modules = ["claude_agent_sdk"]
+# Only direct imports: the container reaches the SDK through the model factory.
 allow_indirect_imports = true
 
 # POETHEPOET -------------------------------------------------------------------

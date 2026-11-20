@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from mixhound.infrastructure.cache import DiskCache, MemoryCache
 from mixhound.infrastructure.catalogs.deadwax import open_catalog
 from mixhound.infrastructure.ffmpeg import FfmpegDecoder
 from mixhound.infrastructure.http import FetchPolicy, PageFetcher, open_http_client
+from mixhound.infrastructure.llm.factory import ModelFactory
 from mixhound.infrastructure.logs import setup_logging
 from mixhound.infrastructure.queue import AsyncioRunQueue
 from mixhound.infrastructure.search.brave import BraveSearch
@@ -50,6 +52,7 @@ class Container:
     decoder: AudioDecoder
     search: WebSearch | None
     queue: RunQueue
+    models: ModelFactory
 
 
 def open_repositories(settings: Settings) -> Repositories:
@@ -86,6 +89,8 @@ async def open_container(settings: Settings) -> AsyncIterator[Container]:
         )
         queue = AsyncioRunQueue(max_pending=settings.queue.max_pending)
         stack.push_async_callback(queue.close)
+        models = ModelFactory(settings.llm, os.environ)
+        stack.push_async_callback(models.aclose)
         container = Container(
             settings=settings,
             skills=skills,
@@ -96,6 +101,7 @@ async def open_container(settings: Settings) -> AsyncIterator[Container]:
             decoder=FfmpegDecoder(),
             search=search,
             queue=queue,
+            models=models,
         )
         log.info("application_started", skills=len(skills.skills), web_search=search is not None)
         try:
