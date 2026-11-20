@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import pytest
-from pydantic import SecretStr
+from pydantic import HttpUrl, SecretStr
 
 from mixhound.config import CacheSettings, SearchSettings, Settings, StorageSettings
 from mixhound.container import open_container
 from mixhound.infrastructure.cache import DiskCache, MemoryCache
 from mixhound.infrastructure.search.brave import BraveSearch
+from mixhound.infrastructure.search.cached import CachedSearch
+from mixhound.infrastructure.search.fallback import FallbackSearch
+from mixhound.infrastructure.search.searxng import SearxngSearch
 from mixhound.infrastructure.storage.files import FileRuns
 from mixhound.infrastructure.storage.memory import MemoryRuns
 from mixhound.models.domain import DiscoveryRun, DiscoveryRunInput, DiscoverySession
@@ -34,7 +37,31 @@ async def test_container_can_keep_everything_in_memory_and_search(tmp_path: Path
     async with open_container(settings) as container:
         assert isinstance(container.repositories.runs, MemoryRuns)
         assert isinstance(container.cache, MemoryCache)
-        assert isinstance(container.search, BraveSearch)
+        assert isinstance(container.search, CachedSearch)
+        assert isinstance(container.search.inner, BraveSearch)
+
+
+@pytest.mark.parametrize(
+    ("search", "engine"),
+    [
+        (SearchSettings(searxng_url=HttpUrl("http://localhost:8888")), SearxngSearch),
+        (
+            SearchSettings(
+                brave_api_key=SecretStr("key"), searxng_url=HttpUrl("http://localhost:8888")
+            ),
+            FallbackSearch,
+        ),
+    ],
+)
+async def test_container_searches_through_searxng(
+    tmp_path: Path, search: SearchSettings, engine: type
+) -> None:
+    settings = Settings(data_dir=tmp_path, storage=StorageSettings(backend="memory"), search=search)
+
+    async with open_container(settings) as container:
+        assert isinstance(container.search, CachedSearch)
+        assert isinstance(container.search.inner, engine)
+        assert container.providers.web_search
 
 
 async def test_container_reconciles_runs_a_previous_process_left(tmp_path: Path) -> None:

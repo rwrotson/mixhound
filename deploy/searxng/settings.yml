@@ -1,0 +1,29 @@
+# SearXNG for mixhound's research agents: JSON output on, Google off.
+# Every query leaves from this host's IP; Google answers automated traffic with CAPTCHAs
+# fastest, so it is removed. SearXNG pauses an engine that blocks it (suspended_times).
+use_default_settings:
+  engines:
+    remove:
+      - google
+
+general:
+  instance_name: mixhound-searxng
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
+
+server:
+  # Overridden by the SEARXNG_SECRET environment variable.
+  secret_key: "change-me"
+  # Only mixhound asks this instance; the bot limiter would need Valkey and block it.
+  limiter: false
+  image_proxy: false
+
+# Route upstream requests through a proxy or VPN to keep them off this host's IP:
+# outgoing:
+#   proxies:
+#     all://:
+#       - socks5h://127.0.0.1:1080

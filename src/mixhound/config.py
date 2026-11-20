@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, HttpUrl, SecretStr, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -93,7 +93,15 @@ class SearchSettings(BaseModel):
     """Web search for the research agents."""
 
     brave_api_key: SecretStr | None = Field(
-        default=None, description="Brave Search API key; web search is off without it"
+        default=None, description="Brave Search API key; asked before SearXNG when both are set"
+    )
+    searxng_url: HttpUrl | None = Field(
+        default=None,
+        description="Base URL of a SearXNG instance with JSON output; web search is off "
+        "without it and without a Brave key",
+    )
+    searxng_min_interval: float = Field(
+        default=1.0, ge=0, description="Seconds between queries sent to SearXNG"
     )
     results: int = Field(default=10, ge=1, le=20, description="Results per web search")
     timeout: float = Field(default=10.0, gt=0, description="Seconds per web search")

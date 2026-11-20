@@ -7,7 +7,7 @@ import httpx
 import structlog
 
 from mixhound.agents.runner import PydanticResearchAgents
-from mixhound.config import Settings
+from mixhound.config import SearchSettings, Settings
 from mixhound.infrastructure.cache import DiskCache, MemoryCache
 from mixhound.infrastructure.catalogs.deadwax import open_catalog
 from mixhound.infrastructure.ffmpeg import FfmpegDecoder
@@ -16,6 +16,9 @@ from mixhound.infrastructure.llm.factory import ModelFactory
 from mixhound.infrastructure.logs import setup_logging
 from mixhound.infrastructure.queue import AsyncioRunQueue
 from mixhound.infrastructure.search.brave import BraveSearch
+from mixhound.infrastructure.search.cached import CachedSearch
+from mixhound.infrastructure.search.fallback import FallbackSearch
+from mixhound.infrastructure.search.searxng import Pacer, SearxngSearch
 from mixhound.infrastructure.skills import load_catalog
 from mixhound.infrastructure.storage.files import FileDiagnostics, FileRuns, FileSessions, FileStore
 from mixhound.infrastructure.storage.memory import MemoryDiagnostics, MemoryRuns, MemorySessions
@@ -108,6 +111,30 @@ async def _prune(cache: Cache) -> None:
             structlog.get_logger("mixhound").exception("cache_prune_failed")
 
 
+async def _open_search(
+    settings: SearchSettings, cache: Cache, stack: AsyncExitStack
+) -> WebSearch | None:
+    """Brave, SearXNG, or Brave falling back to SearXNG, cached; None without either."""
+    if settings.brave_api_key is None and settings.searxng_url is None:
+        return None
+    client = await stack.enter_async_context(httpx.AsyncClient(timeout=settings.timeout))
+    engines: list[WebSearch] = []
+    if settings.brave_api_key is not None:
+        key = settings.brave_api_key.get_secret_value()
+        engines.append(BraveSearch(client, key, results=settings.results))
+    if settings.searxng_url is not None:
+        engines.append(
+            SearxngSearch(
+                client,
+                str(settings.searxng_url),
+                results=settings.results,
+                pacer=Pacer(settings.searxng_min_interval),
+            )
+        )
+    search = engines[0] if len(engines) == 1 else FallbackSearch(engines[0], engines[1])
+    return CachedSearch(search, cache)
+
+
 @asynccontextmanager
 async def open_container(settings: Settings) -> AsyncIterator[Container]:
     """Create application resources and release them on exit."""
@@ -117,21 +144,12 @@ async def open_container(settings: Settings) -> AsyncIterator[Container]:
         skills = load_catalog(settings.skills_dir)
         client = await stack.enter_async_context(open_http_client(settings.http))
         catalog = await stack.enter_async_context(open_catalog(settings.deadwax, settings.data_dir))
-        search: WebSearch | None = None
-        if settings.search.brave_api_key is not None:
-            search_client = await stack.enter_async_context(
-                httpx.AsyncClient(timeout=settings.search.timeout)
-            )
-            search = BraveSearch(
-                search_client,
-                settings.search.brave_api_key.get_secret_value(),
-                results=settings.search.results,
-            )
         cache: Cache = (
             DiskCache(settings.data_dir / "cache", enabled=settings.cache.enabled)
             if settings.storage.backend == "files"
             else MemoryCache()
         )
+        search = await _open_search(settings.search, cache, stack)
         owner = settings.storage.backend == "memory" or stack.enter_context(
             claim_owner(settings.data_dir / "store" / "owner.lock")
         )

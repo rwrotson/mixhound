@@ -18,5 +18,18 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # Free web search: docker compose --profile search up -d searxng
+  # mixhound in this file reaches it at http://searxng:8080, a local run at http://localhost:8888.
+  searxng:
+    image: searxng/searxng:2026.11.5-3e95f6cd2
+    profiles: [search]
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-mixhound-local-only}
+    ports:
+      - "127.0.0.1:${SEARXNG_PORT:-8888}:8080"
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+
 volumes:
   mixhound-data:
