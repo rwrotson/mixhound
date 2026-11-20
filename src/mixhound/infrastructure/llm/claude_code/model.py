@@ -79,6 +79,8 @@ class ClaudeCodeModel(AnthropicModel):
             base_url="https://claude-agent-sdk.invalid",
             max_retries=0,
             http_client=httpx2.AsyncClient(transport=transport, trust_env=False),
+            # The Agent SDK passes trace context to the CLI as TRACEPARENT; headers duplicate it.
+            open_telemetry={"propagation": False},
         )
         super().__init__(
             model_name,

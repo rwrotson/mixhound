@@ -18,6 +18,7 @@ from claude_agent_sdk import (
     ProcessError,
     ResultError,
 )
+from opentelemetry.sdk.trace import TracerProvider
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput, ToolOutput
 from pydantic_ai.exceptions import (
@@ -559,6 +560,15 @@ async def test_application_headers__should_use_native_cli_header_setting(
     assert (
         sdk.transports[0].options.env["ANTHROPIC_CUSTOM_HEADERS"] == "x-sdk-test: application-owned"
     )
+
+
+async def test_application_headers__should_not_carry_trace_context(
+    model: AnthropicModel, sdk: Harness
+) -> None:
+    provider = TracerProvider()
+    with provider.get_tracer(__name__).start_as_current_span("caller"):
+        await Agent(model, model_settings={"extra_headers": {"X-SDK-Test": "kept"}}).run("hello")
+    assert sdk.transports[0].options.env["ANTHROPIC_CUSTOM_HEADERS"] == "x-sdk-test: kept"
 
 
 @pytest.mark.parametrize(
