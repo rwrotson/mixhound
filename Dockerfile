@@ -42,7 +42,9 @@ LABEL org.opencontainers.image.description="mixhound crate-digging agent worker"
       org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 # ffmpeg decodes preview clips for audio similarity.
-RUN apt-get update && apt-get install --yes --no-install-recommends ffmpeg \
+# upgrade applies Debian security fixes released after the pinned base image.
+RUN apt-get update && apt-get upgrade --yes \
+    && apt-get install --yes --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/.venv /app/.venv
 # pip is unused at runtime; its bundled SBOM lists vendored libraries that scanners flag.
