@@ -81,8 +81,20 @@ def test_fallback_wraps_every_other_model() -> None:
 def test_effort_maps_to_thinking(
     effort: Literal["low", "xhigh", "max", "ultra"], thinking: str
 ) -> None:
-    assert factory().settings(effort) == {"thinking": thinking}
+    assert factory(max_tokens=None).settings(effort) == {"thinking": thinking}
 
 
 def test_no_effort_keeps_model_default() -> None:
-    assert factory().settings(None) == {}
+    assert factory(max_tokens=None).settings(None) == {}
+
+
+def test_output_ceiling_applies_to_api_models_only() -> None:
+    models = factory(model="openrouter:z-ai/glm", helper_model="claude-code:haiku", max_tokens=4096)
+    assert models.settings("high") == {"thinking": "high", "max_tokens": 4096}
+    assert models.settings(None, "openai:gpt") == {"max_tokens": 4096}
+    assert models.settings("high", "claude-code:sonnet") == {"thinking": "high"}
+    assert models.settings(None, helper=True) == {}
+
+
+def test_output_ceiling_is_on_by_default() -> None:
+    assert factory(model="test").settings(None) == {"max_tokens": 32768}

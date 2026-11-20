@@ -124,6 +124,14 @@ class LlmSettings(BaseModel):
     openrouter_api_key: SecretStr | None = Field(
         default=None, description="OpenRouter API key for openrouter: models"
     )
+    max_tokens: int | None = Field(
+        default=32768,
+        gt=0,
+        description=(
+            "Output token ceiling of one response, reasoning included, for models other than "
+            "claude-code:; unset keeps the provider default"
+        ),
+    )
     claude_cli_path: Path | None = Field(
         default=None, description="Claude Code executable; unset uses the SDK's bundled CLI"
     )

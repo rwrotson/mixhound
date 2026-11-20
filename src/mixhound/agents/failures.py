@@ -6,6 +6,7 @@ from pydantic_ai.exceptions import (
     ModelOverloadedError,
     ModelQuotaExceededError,
     ModelRateLimitError,
+    OutputTokenLimitExceeded,
     UnexpectedModelBehavior,
     UsageLimitExceeded,
 )
@@ -67,6 +68,8 @@ _TYPED: tuple[tuple[type[Exception] | tuple[type[Exception], ...], str], ...] = 
         (ModelQuotaExceededError, ModelRateLimitError, ModelOverloadedError),
         "limit_reached",
     ),
+    # Before UnexpectedModelBehavior, its base class.
+    (OutputTokenLimitExceeded, "output_limit"),
     (UnexpectedModelBehavior, "invalid_result"),
 )
 

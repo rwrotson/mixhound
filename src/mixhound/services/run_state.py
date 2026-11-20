@@ -99,6 +99,8 @@ class RunState:
     rejections: list[Rejection] = field(default_factory=list)
     # Each agent call's final answer (JSON or text) by label, for the diagnostic.
     answers: dict[str, str] = field(default_factory=dict)
+    # Interim candidate notes of each failed agent call, by label, for the diagnostic.
+    notes: dict[str, list[str]] = field(default_factory=dict)
     # Live searches and noted candidates of each running agent call, by label.
     counts: dict[str, tuple[int, int]] = field(default_factory=dict)
     research_started: float | None = None

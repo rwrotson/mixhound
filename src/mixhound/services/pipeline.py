@@ -27,7 +27,7 @@ from mixhound.services.evidence import (
 from mixhound.services.exclusions import Exclusions
 from mixhound.services.listening import missing_links
 from mixhound.services.preparation import Preparation
-from mixhound.services.research import NOTED_FAILURES, ResearchError, ResearchSteps
+from mixhound.services.research import ResearchError, ResearchSteps
 from mixhound.services.run_state import RESEARCH_STAGE, RunCancelledError, RunState
 from mixhound.services.seed import Seeder
 from mixhound.services.strategies import STRATEGIES
@@ -117,12 +117,12 @@ class ResearchPipeline:
     ) -> ResearchOutput:
         """The orchestrator's answer merged with its delegated researches.
 
-        Delegated answers outlive an orchestrator cut off by a limit.
+        Delegated answers outlive a failed orchestrator.
         """
         try:
             own = await self.steps.orchestrate(state, prompt, workspace)
         except ResearchError as error:
-            if error.code not in NOTED_FAILURES or not workspace.delegated or state.cancelled():
+            if not workspace.delegated or state.cancelled():
                 raise
             log.warning("discovery_orchestrator_cut_off run=%s code=%s", state.run.id, error.code)
             state.run.partial = True
@@ -231,6 +231,8 @@ def _finish(state: RunState) -> dict[str, object]:
     strategy_answers = {name: state.answers[name] for name in STRATEGIES if name in state.answers}
     if strategy_answers:
         diagnostic["strategy_answers"] = strategy_answers
+    if state.notes:
+        diagnostic["notes"] = state.notes
     if run.status == "failed":
         run.failure_message = (
             state.detail[:500] if state.detail else (run.failure_code or "Research failed")

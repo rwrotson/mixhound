@@ -46,9 +46,12 @@ class ModelFactory:
         self._models: dict[str, Model] = {}
         self._claude: list[ClaudeCodeModel] = []
 
+    def _name(self, name: str | None, *, helper: bool) -> str:
+        return name or (self.llm.helper_model if helper else None) or self.llm.model
+
     def model(self, name: str | None = None, *, helper: bool = False) -> Model:
         """Return the named model, else the configured (helper) default, with its fallback."""
-        name = name or (self.llm.helper_model if helper else None) or self.llm.model
+        name = self._name(name, helper=helper)
         if name not in self._models:
             primary = self._build(name)
             fallback = self.llm.fallback_model
@@ -59,9 +62,20 @@ class ModelFactory:
             )
         return self._models[name]
 
-    def settings(self, effort: Effort | None) -> ModelSettings:
-        """Return the request settings of a reasoning effort; None keeps the model default."""
-        return ModelSettings() if effort is None else ModelSettings(thinking=_thinking(effort))
+    def settings(
+        self, effort: Effort | None, name: str | None = None, *, helper: bool = False
+    ) -> ModelSettings:
+        """Return the request settings of a reasoning effort for the named model.
+
+        A None effort keeps the model default. The output ceiling is explicit because provider
+        defaults can be smaller than one high-effort reasoning pass; Claude Code sets its own.
+        """
+        settings = ModelSettings() if effort is None else ModelSettings(thinking=_thinking(effort))
+        if self.llm.max_tokens is not None and not self._name(name, helper=helper).startswith(
+            CLAUDE_CODE
+        ):
+            settings["max_tokens"] = self.llm.max_tokens
+        return settings
 
     def _build(self, name: str) -> Model:
         if name.startswith(CLAUDE_CODE):

@@ -40,8 +40,10 @@ class FakeModels:
         self.asked.append((name, helper, None))
         return self.chosen
 
-    def settings(self, effort: Effort | None) -> ModelSettings:
-        self.asked.append((None, False, effort))
+    def settings(
+        self, effort: Effort | None, name: str | None = None, *, helper: bool = False
+    ) -> ModelSettings:
+        self.asked.append((name, helper, effort))
         return ModelSettings()
 
 
@@ -116,7 +118,7 @@ async def test_research_runs_tools_shows_the_clock_and_records_usage() -> None:
     assert "Clock: 0:00 of 1:00 used" in seen[1]
     assert "Notes written: 1." in seen[1]
     assert "<search_results" in seen[1]
-    assert models.asked == [("test", False, None), (None, False, None)]
+    assert models.asked == [("test", False, None), ("test", False, None)]
     assert state.answers["research"] == OUTPUT.model_dump_json()
     usage = state.usage["research"]
     assert (usage.turns, usage.web_searches) == (2, 1)
@@ -139,6 +141,7 @@ async def test_timeout_keeps_the_notes_written_so_far() -> None:
     assert caught.value.code == "timeout"
     assert [json.loads(note)["title"] for note in caught.value.notes] == ["Noted"]
     assert '"Noted"' in state.answers["research"]
+    assert [json.loads(note)["title"] for note in state.notes["research"]] == ["Noted"]
     assert state.usage["research"].turns == 1
 
 

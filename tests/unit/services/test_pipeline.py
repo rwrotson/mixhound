@@ -125,6 +125,7 @@ async def test_confirmed_result_with_sonic_evidence_is_published() -> None:
     assert "Words" in str(diagnostic["followup_answer"])
     assert "failure_code" not in diagnostic
     assert "strategy_answers" not in diagnostic
+    assert "notes" not in diagnostic
     assert [call.label for call, _ in agents.calls] == ["research", "listening"]
 
 
@@ -314,6 +315,39 @@ async def test_cut_off_orchestrator_keeps_its_delegated_answers() -> None:
     assert state.run.status == "completed"
     assert state.run.partial
     assert [track.title for track in state.run.results] == ["Words"]
+
+
+async def test_orchestrator_failing_on_its_answer_keeps_its_delegated_answers() -> None:
+    state, session = run_state(mode="agentic")
+
+    async def orchestrate(workspace: AgenticWorkspace) -> None:
+        await workspace.delegate("collaborators", SonicProfile(), "", DelegateLimits(60, 1.0))
+
+    flow, _ = pipeline(
+        {
+            "research": ResearchError("output_limit"),
+            "collaborators": words(),
+            "listening": LinkSearchOutput(links=[]),
+        },
+        orchestrate,
+    )
+
+    await flow.execute(state, session, HISTORY)
+
+    assert state.run.status == "completed"
+    assert state.run.partial
+    assert [track.title for track in state.run.results] == ["Words"]
+
+
+async def test_failed_run_keeps_the_notes_in_its_diagnostic() -> None:
+    state, session = run_state()
+    state.notes["research"] = ['{"artist": "A", "title": "B"}']
+    flow, _ = pipeline({"research": ResearchError("auth_unavailable")})
+
+    diagnostic = await flow.execute(state, session, HISTORY)
+
+    assert state.run.status == "failed"
+    assert diagnostic["notes"] == {"research": ['{"artist": "A", "title": "B"}']}
 
 
 @pytest.mark.parametrize("code", ["timeout", "model_unavailable"])

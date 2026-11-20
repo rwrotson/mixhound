@@ -58,7 +58,9 @@ class FixedModels:
     def model(self, name: str | None = None, *, helper: bool = False) -> Model:
         return self.chosen
 
-    def settings(self, effort: Effort | None) -> ModelSettings:
+    def settings(
+        self, effort: Effort | None, name: str | None = None, *, helper: bool = False
+    ) -> ModelSettings:
         return ModelSettings()
 
 

@@ -50,8 +50,6 @@ HELPER_SECONDS = 300
 PROFILE_MAX_USD = 0.5
 MAX_FOLLOWUP_TRACKS = 15
 FOLLOWUP_MAX_USD = 0.75
-# Failures that stop a research midway; the interim notes written until then are kept.
-NOTED_FAILURES = frozenset({"timeout", "budget_exceeded", "limit_reached"})
 # Replaces V1's "Interim notes directory" line: the notes are a tool call here.
 NOTES_REMINDER = (
     "\nInterim notes: call record_candidate with each candidate as soon as you have scored it."
@@ -117,8 +115,8 @@ class ResearchAgents(Protocol):
 
 
 def _partial(state: RunState, error: ResearchError) -> ResearchOutput | None:
-    """Candidates from a cut-off research's notes, unless the run was cancelled."""
-    if error.code not in NOTED_FAILURES or not error.notes or state.cancelled():
+    """Candidates from a failed research's notes, whatever stopped it, unless cancelled."""
+    if not error.notes or state.cancelled():
         return None
     partial = notes_output(error.notes)
     return partial if partial.candidates else None

@@ -29,8 +29,10 @@ class Models(Protocol):
         """Return the named model, else the configured default."""
         ...
 
-    def settings(self, effort: Effort | None) -> ModelSettings:
-        """Return the request settings of a reasoning effort."""
+    def settings(
+        self, effort: Effort | None, name: str | None = None, *, helper: bool = False
+    ) -> ModelSettings:
+        """Return the request settings of a reasoning effort for the named model."""
         ...
 
 
@@ -110,7 +112,9 @@ class PydanticResearchAgents:
                     prompt,
                     deps=deps,
                     model=self.models.model(call.model, helper=call.helper),
-                    model_settings=self.models.settings(call.reasoning_effort),
+                    model_settings=self.models.settings(
+                        call.reasoning_effort, call.model, helper=call.helper
+                    ),
                     instructions=call.instructions,
                     usage_limits=UsageLimits(request_limit=call.requests),
                     usage=usage,
@@ -118,6 +122,8 @@ class PydanticResearchAgents:
                 )
             except Exception as error:
                 state.answers[call.label] = _answer(messages)
+                if deps.notes:
+                    state.notes[call.label] = list(deps.notes)
                 raise ResearchError(
                     failure_code(error), str(error)[-MAX_DETAIL:], notes=list(deps.notes)
                 ) from error

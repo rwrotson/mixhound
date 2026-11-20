@@ -91,8 +91,11 @@ async def test_research_runs_one_noted_call_within_the_run_limits() -> None:
     assert not state.run.partial
 
 
-@pytest.mark.parametrize("code", ["timeout", "budget_exceeded", "limit_reached"])
-async def test_cut_off_research_falls_back_to_its_notes(code: str) -> None:
+@pytest.mark.parametrize(
+    "code",
+    ["timeout", "budget_exceeded", "limit_reached", "output_limit", "invalid_result"],
+)
+async def test_failed_research_falls_back_to_its_notes(code: str) -> None:
     state = run_state()
     research, _ = steps({"research": ResearchError(code, notes=[*notes("Kept"), "not json"])})
 
@@ -108,7 +111,7 @@ async def test_cut_off_research_falls_back_to_its_notes(code: str) -> None:
     [
         (ResearchError("timeout"), False),
         (ResearchError("timeout", notes=["not json"]), False),
-        (ResearchError("invalid_result", notes=notes("Lost")), False),
+        (ResearchError("invalid_result"), False),
         (ResearchError("timeout", notes=notes("Lost")), True),
     ],
 )
