@@ -31,6 +31,7 @@ from mixhound.services.research import (
 from mixhound.services.run_state import RunCancelledError, RunState
 from mixhound.services.verification import ResultVerifier
 from tests.fakes import FakeAgents, FakeCatalog, FakeFetch, Outcome, Reply
+from tests.support.agentic import workspace
 from tests.support.factories import candidate
 
 SKILLS = load_catalog(Path(__file__).parents[3] / ".agents" / "skills")
@@ -317,3 +318,19 @@ async def test_failed_followup_leaves_results_alone_unless_cancelled() -> None:
     cancelled.confirmed.add(track.id)
     with pytest.raises(RunCancelledError):
         await research.followup(cancelled, DiscoveryResearchResult(results=[track]))
+
+
+async def test_orchestrator_runs_with_both_skills_and_keeps_its_notes() -> None:
+    state = run_state(minutes=5, max_usd=2.0)
+    space, _, _ = workspace()
+    research, agents = steps({"research": ResearchError("timeout", notes=notes("Kept"))})
+
+    answer = await research.orchestrate(state, "prompt", space)
+
+    assert [item.title for item in answer.candidates] == ["Kept"]
+    assert state.run.partial
+    call, prompt = agents.calls[0]
+    assert prompt == "prompt" + NOTES_REMINDER
+    assert (call.label, call.seconds, call.max_usd, call.notes) == ("research", 300, 2.0, True)
+    assert call.instructions.startswith("# Discovery orchestration")
+    assert "\n# Music similarity research" in call.instructions

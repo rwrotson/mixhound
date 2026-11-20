@@ -10,6 +10,7 @@ from mixhound.models.domain import (
 )
 from mixhound.services.cache import DAY, CacheSpace, remember
 from mixhound.services.evidence.verdicts import MIN_VERIFIED_SCORE
+from mixhound.services.identity import recording_key
 from mixhound.services.links import choose_preferred
 from mixhound.services.listening import service_name, supported_link
 from mixhound.services.pages import GONE_STATUSES, PageInspector
@@ -127,16 +128,26 @@ class ResultVerifier:
 
         async def confirm(track: DiscoveryTrack) -> None:
             state.check()
-            if state.catalog_down:
+            key = "|".join(
+                (
+                    recording_key(track.artist, track.title, qualifier=track.version_qualifier),
+                    track.isrc or "",
+                ),
+            )
+            if key in state.catalog_answers:
+                found = state.catalog_answers[key]
+            elif state.catalog_down:
                 return
-            try:
-                found = await self.catalog.candidate(
-                    track.artist, track.title, version=track.version_qualifier, isrc=track.isrc
-                )
-            except CatalogUnavailableError as error:
-                log.warning("catalog_unavailable error=%s", error)
-                state.catalog_down = True
-                return
+            else:
+                try:
+                    found = await self.catalog.candidate(
+                        track.artist, track.title, version=track.version_qualifier, isrc=track.isrc
+                    )
+                except CatalogUnavailableError as error:
+                    log.warning("catalog_unavailable error=%s", error)
+                    state.catalog_down = True
+                    return
+                state.catalog_answers[key] = found
             if found is None:
                 return
             state.recordings[track.id] = found

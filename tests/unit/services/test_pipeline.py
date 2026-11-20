@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from mixhound.models.domain import (
     SonicProfile,
 )
 from mixhound.models.research import FoundLink, LinkSearchOutput, ResearchOutput, ResearchSource
+from mixhound.services.agentic import ORCHESTRATION_NOTE, AgenticWorkspace, DelegateLimits
 from mixhound.services.audio import AudioMatcher
 from mixhound.services.evidence import ResearchEvidenceError
 from mixhound.services.pages import PageInspector
@@ -58,8 +60,11 @@ def words(**changes: object) -> ResearchOutput:
     return ResearchOutput(sonic_profile=SonicProfile(summary="Hushed"), candidates=[found])
 
 
-def pipeline(outcomes: dict[str, Outcome]) -> tuple[ResearchPipeline, FakeAgents]:
-    agents = FakeAgents(outcomes)
+def pipeline(
+    outcomes: dict[str, Outcome],
+    orchestration: Callable[[AgenticWorkspace], Awaitable[None]] | None = None,
+) -> tuple[ResearchPipeline, FakeAgents]:
+    agents = FakeAgents(outcomes, orchestration)
     catalog = FakeCatalog({("Low", "Words"): WORDS})
     verifier = ResultVerifier(catalog, PageInspector(FakeFetch(dict(PAGES))), MemoryCache())
     return (
@@ -247,3 +252,76 @@ async def test_history_excludes_earlier_recordings() -> None:
 
     assert state.run.results == []
     assert any("Words" in item.title for item in state.rejections)
+
+
+async def test_agentic_run_merges_delegated_answers_and_verifies_once() -> None:
+    state, session = run_state(mode="agentic", model="test")
+    other = words().model_copy(update={"candidates": [candidate(artist="Duster", title="Echo")]})
+
+    async def orchestrate(workspace: AgenticWorkspace) -> None:
+        (report,) = await workspace.verify(words().candidates)
+        assert report.confirmed
+        await workspace.delegate("traits", SonicProfile(), "", DelegateLimits(60, 1.0))
+
+    flow, agents = pipeline(
+        {"research": words(), "traits": other, "listening": LinkSearchOutput(links=[])},
+        orchestrate,
+    )
+
+    diagnostic = await flow.execute(state, session, HISTORY)
+
+    run = state.run
+    assert run.status == "completed"
+    assert [track.title for track in run.results] == ["Words"]
+    assert [track.title for track in run.unverified_leads] == ["Echo"]
+    assert state.metrics.candidates == 2
+    assert state.metrics.overlap == 0
+    assert [call.label for call, _ in agents.calls] == ["traits", "research", "listening"]
+    orchestrator, prompt = agents.calls[1]
+    assert "# Discovery orchestration" in orchestrator.instructions
+    assert "# Music similarity research" in orchestrator.instructions
+    assert "## Strategy runs" not in orchestrator.instructions
+    assert ORCHESTRATION_NOTE in prompt
+    assert '"candidate_pool": []' in prompt
+    assert set(state.metrics.stages) == set(STAGE_ORDER) - {"profile"}
+    catalog = flow.verifier.catalog
+    assert isinstance(catalog, FakeCatalog)
+    assert sum(call[2] == "Words" for call in catalog.calls) == 1
+    assert diagnostic["mode"] == "agentic"
+    assert diagnostic["answer"] == words().model_dump_json()
+    answers = diagnostic["strategy_answers"]
+    assert isinstance(answers, dict)
+    assert set(answers) == {"traits"}
+
+
+async def test_cut_off_orchestrator_keeps_its_delegated_answers() -> None:
+    state, session = run_state(mode="agentic")
+
+    async def orchestrate(workspace: AgenticWorkspace) -> None:
+        await workspace.delegate("collaborators", SonicProfile(), "", DelegateLimits(60, 1.0))
+
+    flow, _ = pipeline(
+        {
+            "research": ResearchError("timeout"),
+            "collaborators": words(),
+            "listening": LinkSearchOutput(links=[]),
+        },
+        orchestrate,
+    )
+
+    await flow.execute(state, session, HISTORY)
+
+    assert state.run.status == "completed"
+    assert state.run.partial
+    assert [track.title for track in state.run.results] == ["Words"]
+
+
+@pytest.mark.parametrize("code", ["timeout", "model_unavailable"])
+async def test_orchestrator_failure_without_kept_answers_fails_the_run(code: str) -> None:
+    state, session = run_state(mode="agentic")
+    flow, _ = pipeline({"research": ResearchError(code)})
+
+    await flow.execute(state, session, HISTORY)
+
+    assert state.run.status == "failed"
+    assert state.run.failure_code == code

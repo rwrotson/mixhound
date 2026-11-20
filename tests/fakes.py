@@ -1,5 +1,5 @@
 import json
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from mixhound.models.domain import (
     SonicProfile,
 )
 from mixhound.models.research import LinkSearchOutput, ResearchOutput
+from mixhound.services.agentic import AgenticWorkspace
 from mixhound.services.ports import (
     HTML,
     JSON,
@@ -158,8 +159,14 @@ type Outcome = BaseModel | BaseException
 class FakeAgents:
     """Answers agent calls with a queued output or error per call label."""
 
-    def __init__(self, outcomes: Mapping[str, Outcome] | None = None) -> None:
+    def __init__(
+        self,
+        outcomes: Mapping[str, Outcome] | None = None,
+        orchestration: Callable[[AgenticWorkspace], Awaitable[None]] | None = None,
+    ) -> None:
         self.outcomes = dict(outcomes or {})
+        # What the orchestrator does through its workspace before it answers.
+        self.orchestration = orchestration
         self.calls: list[tuple[AgentCall, str]] = []
 
     def _answer(self, state: RunState, call: AgentCall, prompt: str) -> BaseModel:
@@ -184,4 +191,13 @@ class FakeAgents:
     async def find_links(self, state: RunState, call: AgentCall, prompt: str) -> LinkSearchOutput:
         answer = self._answer(state, call, prompt)
         assert isinstance(answer, LinkSearchOutput)
+        return answer
+
+    async def orchestrate(
+        self, state: RunState, call: AgentCall, prompt: str, workspace: AgenticWorkspace
+    ) -> ResearchOutput:
+        if self.orchestration is not None:
+            await self.orchestration(workspace)
+        answer = self._answer(state, call, prompt)
+        assert isinstance(answer, ResearchOutput)
         return answer

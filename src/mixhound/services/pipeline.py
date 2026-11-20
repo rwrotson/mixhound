@@ -1,16 +1,24 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Literal
 
 from mixhound.memory.context import RunHistory
-from mixhound.models.domain import DiscoveryResearchResult, DiscoverySession, now_utc
+from mixhound.models.domain import (
+    DiscoveryResearchResult,
+    DiscoverySession,
+    SonicProfile,
+    now_utc,
+)
 from mixhound.models.research import ResearchOutput
+from mixhound.services.agentic import ORCHESTRATION_NOTE, AgenticWorkspace, RunServices
 from mixhound.services.audio import AudioMatcher
 from mixhound.services.budgets import DEPTH_BUDGETS
 from mixhound.services.context import build_context, exclusions_from_history, research_target
 from mixhound.services.evidence import (
     ResearchEvidenceError,
     has_sonic_evidence,
+    merge_outputs,
     publish_result,
     research_result,
     screen_research_result,
@@ -19,7 +27,7 @@ from mixhound.services.evidence import (
 from mixhound.services.exclusions import Exclusions
 from mixhound.services.listening import missing_links
 from mixhound.services.preparation import Preparation
-from mixhound.services.research import ResearchError, ResearchSteps
+from mixhound.services.research import NOTED_FAILURES, ResearchError, ResearchSteps
 from mixhound.services.run_state import RESEARCH_STAGE, RunCancelledError, RunState
 from mixhound.services.seed import Seeder
 from mixhound.services.strategies import STRATEGIES
@@ -70,6 +78,9 @@ class ResearchPipeline:
     ) -> None:
         """Prepare the run, research it, verify the results and publish them."""
         run = state.run
+        if run.input.settings.mode == "agentic":
+            await self._agentic(state, history)
+            return
         with state.enter("prepare"):
             exclusions = exclusions_from_history(history)
             preparation = await self._prepare(state, exclusions)
@@ -81,12 +92,67 @@ class ResearchPipeline:
                 prompt, exclusions = build_context(run, history, preparation)
             with state.enter(RESEARCH_STAGE):
                 output = await self.steps.research(state, prompt)
+        await self.finalize(state, output, preparation, exclusions)
+
+    async def _agentic(self, state: RunState, history: RunHistory) -> None:
+        """Let the orchestrator seed, research and check, then verify and publish as usual."""
+        run = state.run
+        with state.enter("prepare"):
+            workspace = AgenticWorkspace(
+                state,
+                history,
+                exclusions_from_history(history),
+                RunServices(self.seeder, self.verifier, self.audio_matcher, self.steps),
+            )
+        with state.enter("context"):
+            prompt, exclusions = build_context(run, history)
+        with state.enter(RESEARCH_STAGE):
+            output = await self._orchestrate(state, prompt + ORCHESTRATION_NOTE, workspace)
+        await self.finalize(
+            state, output, workspace.preparation, exclusions, complete=workspace.complete
+        )
+
+    async def _orchestrate(
+        self, state: RunState, prompt: str, workspace: AgenticWorkspace
+    ) -> ResearchOutput:
+        """The orchestrator's answer merged with its delegated researches.
+
+        Delegated answers outlive an orchestrator cut off by a limit.
+        """
+        try:
+            own = await self.steps.orchestrate(state, prompt, workspace)
+        except ResearchError as error:
+            if error.code not in NOTED_FAILURES or not workspace.delegated or state.cancelled():
+                raise
+            log.warning("discovery_orchestrator_cut_off run=%s code=%s", state.run.id, error.code)
+            state.run.partial = True
+            state.detail = error.code
+            own = ResearchOutput(sonic_profile=SonicProfile(), candidates=[])
+        if not workspace.delegated:
+            return own
+        merged, state.metrics.overlap = merge_outputs({RESEARCH_STAGE: own, **workspace.delegated})
+        return merged
+
+    async def finalize(
+        self,
+        state: RunState,
+        output: ResearchOutput,
+        preparation: Preparation,
+        exclusions: Exclusions,
+        *,
+        complete: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
+        """Screen, verify and publish a research answer; the same in both modes.
+
+        `complete` fills reference facts the research skipped before the audio comparison.
+        """
+        run = state.run
         result = research_result(output, run.input)
         state.metrics.candidates = len(result.results) + len(result.unverified_leads)
         state.metrics.sonic_evidence = sum(
             has_sonic_evidence(track) for track in result.results + result.unverified_leads
         )
-        await self._verify(state, result, preparation, exclusions)
+        await self._verify(state, result, preparation, exclusions, complete)
         state.check()
         run.results = result.results
         run.unverified_leads = result.unverified_leads
@@ -111,6 +177,7 @@ class ResearchPipeline:
         result: DiscoveryResearchResult,
         preparation: Preparation,
         exclusions: Exclusions,
+        complete: Callable[[], Awaitable[None]] | None,
     ) -> None:
         """Screen, confirm, link, listen to and compare the results, then publish them."""
         run_input = state.run.input
@@ -136,6 +203,8 @@ class ResearchPipeline:
         with state.enter("listening_verification"):
             await self.verifier.confirm_links(state, result)
         with state.enter("audio"):
+            if complete is not None:
+                await complete()
             await self.audio_matcher.compare(state, result, preparation)
         with state.enter("publish"):
             state.rejections += publish_result(result, run_input, state.confirmed)

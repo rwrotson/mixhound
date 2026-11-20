@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import time
-from dataclasses import dataclass
-from typing import Literal, Protocol
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from mixhound.memory.context import RunHistory
 from mixhound.models.domain import (
@@ -26,7 +26,12 @@ from mixhound.services.evidence import merge_outputs, notes_output
 from mixhound.services.listening import followup_prompt, missing_links, proposed_links
 from mixhound.services.preparation import Preparation
 from mixhound.services.run_state import RESEARCH_STAGE, RunState
-from mixhound.services.skills import LINK_SEARCH_SKILL, PROFILE_SKILL, SkillCatalog
+from mixhound.services.skills import (
+    LINK_SEARCH_SKILL,
+    ORCHESTRATION_SKILL,
+    PROFILE_SKILL,
+    SkillCatalog,
+)
 from mixhound.services.strategies import (
     STRATEGIES,
     split_pool,
@@ -34,6 +39,9 @@ from mixhound.services.strategies import (
     strategy_max_usd,
 )
 from mixhound.services.verification import ResultVerifier, likely_result
+
+if TYPE_CHECKING:
+    from mixhound.services.agentic import AgenticWorkspace
 
 log = logging.getLogger(__name__)
 
@@ -101,6 +109,12 @@ class ResearchAgents(Protocol):
         """Find track pages of known recordings."""
         ...
 
+    async def orchestrate(
+        self, state: RunState, call: AgentCall, prompt: str, workspace: AgenticWorkspace
+    ) -> ResearchOutput:
+        """Research candidates in agentic mode, seeding and verifying through the workspace."""
+        ...
+
 
 def _partial(state: RunState, error: ResearchError) -> ResearchOutput | None:
     """Candidates from a cut-off research's notes, unless the run was cancelled."""
@@ -141,18 +155,38 @@ class ResearchSteps:
         try:
             return await self.agents.research(state, call, prompt + NOTES_REMINDER)
         except ResearchError as error:
-            partial = _partial(state, error)
-            if partial is None:
-                raise
-            log.warning(
-                "discovery_partial_research run=%s code=%s candidates=%d",
-                state.run.id,
-                error.code,
-                len(partial.candidates),
-            )
-            state.run.partial = True
-            state.detail = error.code
-            return partial
+            return self._noted(state, error)
+
+    async def orchestrate(
+        self, state: RunState, prompt: str, workspace: AgenticWorkspace
+    ) -> ResearchOutput:
+        """Run the orchestrator; a cut-off answer falls back to its interim notes."""
+        call = replace(
+            self._research_call(state, "research", strategy=False),
+            instructions=self.skills.get(ORCHESTRATION_SKILL).instructions()
+            + "\n"
+            + self.skills.research_instructions(),
+        )
+        try:
+            return await self.agents.orchestrate(state, call, prompt + NOTES_REMINDER, workspace)
+        except ResearchError as error:
+            return self._noted(state, error)
+
+    @staticmethod
+    def _noted(state: RunState, error: ResearchError) -> ResearchOutput:
+        """The interim notes of a cut-off research, else the error raised again."""
+        partial = _partial(state, error)
+        if partial is None:
+            raise error
+        log.warning(
+            "discovery_partial_research run=%s code=%s candidates=%d",
+            state.run.id,
+            error.code,
+            len(partial.candidates),
+        )
+        state.run.partial = True
+        state.detail = error.code
+        return partial
 
     async def profile(
         self,
@@ -181,11 +215,13 @@ class ResearchSteps:
             log.warning("discovery_profile_failed run=%s code=%s", state.run.id, error.code)
             return None
 
-    async def _strategy(self, state: RunState, name: str, prompt: str) -> ResearchOutput:
+    async def _strategy(
+        self, state: RunState, name: str, prompt: str, call: AgentCall | None = None
+    ) -> ResearchOutput:
         """One strategy's research; interim notes stand in for an answer cut off by a limit."""
         metrics = state.metrics.strategies[name] = StrategyMetrics()
         started = time.monotonic()
-        call = self._research_call(state, name, strategy=True)
+        call = call or self._research_call(state, name, strategy=True)
         try:
             output = await self.agents.research(state, call, prompt + NOTES_REMINDER)
         except ResearchError as error:
@@ -211,6 +247,15 @@ class ResearchSteps:
                 metrics.web_searches = usage.web_searches
         metrics.candidates = len(output.candidates)
         return output
+
+    async def delegate(
+        self, state: RunState, name: str, prompt: str, seconds: float, max_usd: float
+    ) -> ResearchOutput:
+        """One strategy's research delegated by the orchestrator, within the time and money left."""
+        call = replace(
+            self._research_call(state, name, strategy=True), seconds=seconds, max_usd=max_usd
+        )
+        return await self._strategy(state, name, prompt, call)
 
     async def _research_parallel(
         self,

@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from mixhound.models.domain import DiscoveryReference, DiscoveryRunInput
 from mixhound.services.audio import AudioAnalyzer
@@ -47,7 +48,7 @@ def _group(recording: CatalogRecording, group: LeadGroup) -> list[CatalogLead]:
     return [lead for lead in recording.leads if lead.group == group]
 
 
-def _leads(recording: CatalogRecording | None) -> list[list[CatalogLead]]:
+def reference_leads(recording: CatalogRecording | None) -> list[list[CatalogLead]]:
     """Lead lists for one reference, one list per source and path, in V1 order."""
     if recording is None:
         return []
@@ -77,6 +78,15 @@ def _tags(recording: CatalogRecording) -> list[str]:
     return tags
 
 
+@dataclass(frozen=True)
+class ReferenceLookup:
+    """One reference's facts and catalog answer; `catalog_down` reports a catalog outage."""
+
+    facts: ReferenceFacts
+    recording: CatalogRecording | None
+    catalog_down: bool = False
+
+
 class Seeder:
     """Server-side preparation before research: catalog facts, audio and a candidate pool."""
 
@@ -97,6 +107,30 @@ class Seeder:
                 return found
         return None
 
+    async def lookup(
+        self, reference: DiscoveryReference, *, catalog: bool = True
+    ) -> ReferenceLookup:
+        """Look one reference up and measure its audio; `catalog=False` skips a down catalog."""
+        facts = ReferenceFacts()
+        found: CatalogRecording | None = None
+        down = False
+        if catalog:
+            try:
+                found = await self.catalog.reference(
+                    reference.artist, reference.title, version=reference.version_qualifier
+                )
+            except CatalogUnavailableError as error:
+                log.warning("seed_catalog_unavailable error=%s", error)
+                down = True
+        if found:
+            facts.mbid, facts.artist_mbids, facts.tags = (
+                found.mbid,
+                found.artist_mbids,
+                _tags(found),
+            )
+        facts.audio = await self._reference_audio(found, facts)
+        return ReferenceLookup(facts, found, down)
+
     async def prepare(
         self,
         run_input: DiscoveryRunInput,
@@ -106,37 +140,25 @@ class Seeder:
     ) -> Preparation:
         """Gather reference facts and up to `pool_size` leads; `check` may abort between steps."""
         preparation = Preparation()
-        references = sorted(
-            (item for item in run_input.references if item.polarity != "neutral"),
-            key=lambda item: -item.priority,
-        )
-        catalog: TrackCatalog | None = self.catalog
+        catalog = True
         seeds: list[tuple[DiscoveryReference, list[list[CatalogLead]]]] = []
-        for reference in references:
+        for reference in seed_order(run_input):
             check()
-            facts = ReferenceFacts()
-            preparation.facts[reference.id] = facts
-            seeded = reference.polarity == "positive" and len(seeds) < MAX_SEED_REFERENCES
-            found: CatalogRecording | None = None
-            if catalog is not None:
-                try:
-                    found = await catalog.reference(
-                        reference.artist, reference.title, version=reference.version_qualifier
-                    )
-                except CatalogUnavailableError as error:
-                    log.warning("seed_catalog_unavailable error=%s", error)
-                    catalog = None
-            if found:
-                facts.mbid, facts.artist_mbids, facts.tags = (
-                    found.mbid,
-                    found.artist_mbids,
-                    _tags(found),
-                )
-            facts.audio = await self._reference_audio(found, facts)
-            if seeded:
-                seeds.append((reference, _leads(found)))
+            looked_up = await self.lookup(reference, catalog=catalog)
+            catalog = catalog and not looked_up.catalog_down
+            preparation.facts[reference.id] = looked_up.facts
+            if reference.polarity == "positive" and len(seeds) < MAX_SEED_REFERENCES:
+                seeds.append((reference, reference_leads(looked_up.recording)))
         preparation.pool = _interleave(seeds, run_input, exclusions, pool_size)
         return preparation
+
+
+def seed_order(run_input: DiscoveryRunInput) -> list[DiscoveryReference]:
+    """The non-neutral references, highest priority first."""
+    return sorted(
+        (item for item in run_input.references if item.polarity != "neutral"),
+        key=lambda item: -item.priority,
+    )
 
 
 def _interleave(
@@ -146,22 +168,12 @@ def _interleave(
     limit: int,
 ) -> list[dict[str, object]]:
     """Merge the leads round-robin across references and sources, skipping excluded ones."""
-    pool = _Pool(run_input, exclusions)
-    queues = [(reference, list(group)) for reference, groups in seeds for group in groups if group]
-
-    # Round-robin: each queue contributes one accepted lead per round.
-    while queues and len(pool.leads) < limit:
-        for reference, queue in list(queues):
-            while queue and not pool.accept(reference, queue.pop(0)):
-                pass
-            if not queue:
-                queues.remove((reference, queue))
-            if len(pool.leads) >= limit:
-                break
+    pool = LeadPool(run_input, exclusions)
+    pool.interleave(seeds, limit)
     return pool.leads
 
 
-class _Pool:
+class LeadPool:
     """Leads accepted so far, and the rules that exclude a lead."""
 
     def __init__(self, run_input: DiscoveryRunInput, exclusions: Exclusions) -> None:
@@ -181,6 +193,27 @@ class _Pool:
         self.seen: set[str] = set()
         self.per_artist: dict[str, int] = {}
         self.leads: list[dict[str, object]] = []
+
+    def interleave(
+        self,
+        seeds: list[tuple[DiscoveryReference, list[list[CatalogLead]]]],
+        limit: int,
+    ) -> list[dict[str, object]]:
+        """Accept leads round-robin across references and sources up to `limit`; return new ones."""
+        start = len(self.leads)
+        queues = [
+            (reference, list(group)) for reference, groups in seeds for group in groups if group
+        ]
+        # Round-robin: each queue contributes one accepted lead per round.
+        while queues and len(self.leads) < limit:
+            for reference, queue in list(queues):
+                while queue and not self.accept(reference, queue.pop(0)):
+                    pass
+                if not queue:
+                    queues.remove((reference, queue))
+                if len(self.leads) >= limit:
+                    break
+        return self.leads[start:]
 
     def accept(self, reference: DiscoveryReference, item: CatalogLead) -> bool:
         """Add a lead unless it is excluded, repeated or over its artist's share."""

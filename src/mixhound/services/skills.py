@@ -16,6 +16,7 @@ _FRONT_MATTER = re.compile(r"\A---\s*\n(?P<meta>.*?)\n---\s*(?:\n|\Z)(?P<body>.*
 RESEARCH_SKILL = "music-similarity-research"
 PROFILE_SKILL = "sonic-profile"
 LINK_SEARCH_SKILL = "listening-link-search"
+ORCHESTRATION_SKILL = "discovery-orchestration"
 # Read only by parallel strategy runs; cut from the single-pass instructions.
 STRATEGY_SECTION = "## Strategy runs"
 

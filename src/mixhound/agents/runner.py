@@ -9,10 +9,12 @@ from pydantic_ai.usage import RunUsage
 
 from mixhound.agents.failures import failure_code
 from mixhound.agents.link_finder import build_link_finder
+from mixhound.agents.orchestrator import build_orchestrator
 from mixhound.agents.profiler import build_profiler
 from mixhound.agents.researcher import build_researcher
 from mixhound.models.domain import SonicProfile
 from mixhound.models.research import LinkSearchOutput, ResearchOutput
+from mixhound.services.agentic import AgenticWorkspace
 from mixhound.services.research import AgentCall, Effort, ResearchError
 from mixhound.services.run_state import LlmUsage, RunState
 from mixhound.tools.deps import Toolbox, ToolDeps
@@ -67,12 +69,21 @@ class PydanticResearchAgents:
         self.researcher = build_researcher()
         self.profiler = build_profiler()
         self.link_finder = build_link_finder()
+        self.orchestrator = build_orchestrator()
 
     async def research(self, state: RunState, call: AgentCall, prompt: str) -> ResearchOutput:
         """Research candidates; the research cannot work without web search."""
         if self.toolbox.search is None:
             raise ResearchError("search_unavailable", "No web search is configured")
         return await self._run(self.researcher, state, call, prompt)
+
+    async def orchestrate(
+        self, state: RunState, call: AgentCall, prompt: str, workspace: AgenticWorkspace
+    ) -> ResearchOutput:
+        """Research in agentic mode; the orchestrator cannot work without web search either."""
+        if self.toolbox.search is None:
+            raise ResearchError("search_unavailable", "No web search is configured")
+        return await self._run(self.orchestrator, state, call, prompt, workspace)
 
     async def profile(self, state: RunState, call: AgentCall, prompt: str) -> SonicProfile:
         """Write the references' sonic profile."""
@@ -83,10 +94,15 @@ class PydanticResearchAgents:
         return await self._run(self.link_finder, state, call, prompt)
 
     async def _run[Output: BaseModel](
-        self, agent: Agent[ToolDeps, Output], state: RunState, call: AgentCall, prompt: str
+        self,
+        agent: Agent[ToolDeps, Output],
+        state: RunState,
+        call: AgentCall,
+        prompt: str,
+        workspace: AgenticWorkspace | None = None,
     ) -> Output:
         """Run one call; record its usage and answer, and raise failures as ResearchError."""
-        deps = ToolDeps(state, call, self.toolbox)
+        deps = ToolDeps(state, call, self.toolbox, workspace=workspace)
         usage = RunUsage()
         with capture_run_messages() as messages:
             try:

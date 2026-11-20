@@ -91,6 +91,8 @@ class RunState:
     # Catalog answers per result, read again by the audio match and the agents.
     recordings: dict[UUID, CatalogRecording] = field(default_factory=dict)
     catalog_down: bool = False
+    # Catalog answers by recording key, so a recording checked twice costs one request.
+    catalog_answers: dict[str, CatalogRecording | None] = field(default_factory=dict)
     stage: str = "prepare"
     # What the run reports when it fails: the failure code or detail of the stage.
     detail: str = ""

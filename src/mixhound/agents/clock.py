@@ -11,6 +11,7 @@ from pydantic_ai import (
 from pydantic_ai.capabilities import Hooks
 from pydantic_ai.messages import ModelResponse
 
+from mixhound.services.agentic import delegated_cost
 from mixhound.services.errors import MixhoundError
 from mixhound.tools.deps import ToolDeps
 
@@ -50,7 +51,11 @@ async def _before_request(
     ctx: RunContext[ToolDeps], request_context: ModelRequestContext
 ) -> ModelRequestContext:
     deps = ctx.deps
-    check_budget(ctx.usage.cost, deps.call.max_usd)
+    cost = ctx.usage.cost
+    if cost is not None and deps.workspace is not None:
+        # In agentic mode the cap covers the run: finished delegated researches count too.
+        cost += Decimal(str(delegated_cost(deps.state)))
+    check_budget(cost, deps.call.max_usd)
     # Like V1's PostToolUse hook: researching calls see the clock once they have acted.
     if deps.call.notes and any(isinstance(message, ModelResponse) for message in ctx.messages):
         line = clock_line(deps.elapsed(), deps.call.seconds, len(deps.notes))

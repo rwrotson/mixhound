@@ -2,9 +2,11 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 
+from mixhound.services.agentic import AgenticWorkspace
 from mixhound.services.ports import PageFetch, TrackCatalog, WebSearch
 from mixhound.services.research import AgentCall
 from mixhound.services.run_state import RunState
+from mixhound.services.strategies import STRATEGIES
 
 SEARCH_TOOLS = ("search_web", "fetch_page")
 # Per-call caps of the tools that are not bounded by the request limit alone.
@@ -32,6 +34,8 @@ class ToolDeps:
     notes: list[str] = field(default_factory=list)
     calls: Counter[str] = field(default_factory=Counter)
     failed_fetches: int = 0
+    # The orchestrator's seeding, verification and delegation; None for the other agents.
+    workspace: AgenticWorkspace | None = None
 
     def cap(self, tool: str) -> int:
         """Return how often a tool may run in this call."""
@@ -39,13 +43,22 @@ class ToolDeps:
             return 2 * self.call.requests
         if tool == "describe_recording":
             return MAX_DESCRIBED
+        if tool == "lookup_reference":
+            return len(self.workspace.references) if self.workspace else 0
+        if tool == "delegate_research":
+            return len(STRATEGIES)
+        # record_candidate and verify_candidates count candidates.
         return self.call.candidates
 
-    def take(self, tool: str) -> bool:
-        """Count one use of a tool; False once its cap is reached."""
-        if self.calls[tool] >= self.cap(tool):
+    def room(self, tool: str) -> int:
+        """Return how many more uses of a tool this call has left."""
+        return max(self.cap(tool) - self.calls[tool], 0)
+
+    def take(self, tool: str, count: int = 1) -> bool:
+        """Count `count` uses of a tool; False when they exceed its cap."""
+        if count > self.room(tool):
             return False
-        self.calls[tool] += 1
+        self.calls[tool] += count
         return True
 
     def elapsed(self) -> float:

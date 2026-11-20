@@ -6,6 +6,7 @@ from mixhound.infrastructure.skills import load_catalog
 from mixhound.services.errors import NotFoundError
 from mixhound.services.skills import (
     LINK_SEARCH_SKILL,
+    ORCHESTRATION_SKILL,
     PROFILE_SKILL,
     RESEARCH_SKILL,
     InvalidSkillError,
@@ -22,7 +23,9 @@ def skill_text(front_matter: str, body: str = "# Body\n") -> str:
 def test_packaged_skills_load_and_follow_the_specification() -> None:
     catalog = load_catalog(SKILLS)
 
-    assert {RESEARCH_SKILL, PROFILE_SKILL, LINK_SEARCH_SKILL} <= set(catalog.skills)
+    assert {RESEARCH_SKILL, PROFILE_SKILL, LINK_SEARCH_SKILL, ORCHESTRATION_SKILL} <= set(
+        catalog.skills
+    )
     assert f"- {PROFILE_SKILL}: " in catalog.summary()
 
 
