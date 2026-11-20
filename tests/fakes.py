@@ -3,7 +3,15 @@ from collections.abc import Mapping
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from mixhound.models.domain import DiscoveryRun, DiscoverySession, DiscoverySettings
+from pydantic import BaseModel
+
+from mixhound.models.domain import (
+    DiscoveryRun,
+    DiscoverySession,
+    DiscoverySettings,
+    SonicProfile,
+)
+from mixhound.models.research import LinkSearchOutput, ResearchOutput
 from mixhound.services.ports import (
     HTML,
     JSON,
@@ -14,6 +22,8 @@ from mixhound.services.ports import (
     FetchError,
     Samples,
 )
+from mixhound.services.research import AgentCall
+from mixhound.services.run_state import LlmUsage, RunState
 
 
 class FakeSessions:
@@ -140,3 +150,38 @@ class FakeDecoder:
         if isinstance(found, Exception):
             raise found
         return found
+
+
+type Outcome = BaseModel | BaseException
+
+
+class FakeAgents:
+    """Answers agent calls with a queued output or error per call label."""
+
+    def __init__(self, outcomes: Mapping[str, Outcome] | None = None) -> None:
+        self.outcomes = dict(outcomes or {})
+        self.calls: list[tuple[AgentCall, str]] = []
+
+    def _answer(self, state: RunState, call: AgentCall, prompt: str) -> BaseModel:
+        self.calls.append((call, prompt))
+        state.add_usage(call.label, LlmUsage(cost_usd=0.25, web_searches=3, turns=2))
+        outcome = self.outcomes[call.label]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        state.answers[call.label] = outcome.model_dump_json()
+        return outcome
+
+    async def research(self, state: RunState, call: AgentCall, prompt: str) -> ResearchOutput:
+        answer = self._answer(state, call, prompt)
+        assert isinstance(answer, ResearchOutput)
+        return answer
+
+    async def profile(self, state: RunState, call: AgentCall, prompt: str) -> SonicProfile:
+        answer = self._answer(state, call, prompt)
+        assert isinstance(answer, SonicProfile)
+        return answer
+
+    async def find_links(self, state: RunState, call: AgentCall, prompt: str) -> LinkSearchOutput:
+        answer = self._answer(state, call, prompt)
+        assert isinstance(answer, LinkSearchOutput)
+        return answer

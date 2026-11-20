@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import httpx
 import structlog
 
+from mixhound.agents.runner import PydanticResearchAgents
 from mixhound.config import Settings
 from mixhound.infrastructure.cache import DiskCache, MemoryCache
 from mixhound.infrastructure.catalogs.deadwax import open_catalog
@@ -19,6 +20,9 @@ from mixhound.infrastructure.skills import load_catalog
 from mixhound.infrastructure.storage.files import FileDiagnostics, FileRuns, FileSessions, FileStore
 from mixhound.infrastructure.storage.memory import MemoryDiagnostics, MemoryRuns, MemorySessions
 from mixhound.memory.repository import DiagnosticsRepository, RunRepository, SessionRepository
+from mixhound.services.audio import AudioAnalyzer, AudioMatcher
+from mixhound.services.pages import PageInspector
+from mixhound.services.pipeline import ResearchPipeline
 from mixhound.services.ports import (
     AudioDecoder,
     Cache,
@@ -27,7 +31,11 @@ from mixhound.services.ports import (
     TrackCatalog,
     WebSearch,
 )
+from mixhound.services.research import ResearchSteps
+from mixhound.services.seed import Seeder
 from mixhound.services.skills import SkillCatalog
+from mixhound.services.verification import ResultVerifier
+from mixhound.tools.deps import Toolbox
 
 
 @dataclass(frozen=True)
@@ -53,6 +61,7 @@ class Container:
     search: WebSearch | None
     queue: RunQueue
     models: ModelFactory
+    pipeline: ResearchPipeline
 
 
 def open_repositories(settings: Settings) -> Repositories:
@@ -91,17 +100,28 @@ async def open_container(settings: Settings) -> AsyncIterator[Container]:
         stack.push_async_callback(queue.close)
         models = ModelFactory(settings.llm, os.environ)
         stack.push_async_callback(models.aclose)
+        pages = PageFetcher(client, FetchPolicy.from_settings(settings.http))
+        decoder = FfmpegDecoder()
+        verifier = ResultVerifier(catalog, PageInspector(pages), cache)
+        audio = AudioAnalyzer(pages, decoder, cache) if decoder.available() else None
+        agents = PydanticResearchAgents(models, Toolbox(pages, catalog, search))
         container = Container(
             settings=settings,
             skills=skills,
             repositories=open_repositories(settings),
             catalog=catalog,
-            pages=PageFetcher(client, FetchPolicy.from_settings(settings.http)),
+            pages=pages,
             cache=cache,
-            decoder=FfmpegDecoder(),
+            decoder=decoder,
             search=search,
             queue=queue,
             models=models,
+            pipeline=ResearchPipeline(
+                Seeder(catalog, audio),
+                verifier,
+                AudioMatcher(audio),
+                ResearchSteps(agents, verifier, skills),
+            ),
         )
         log.info("application_started", skills=len(skills.skills), web_search=search is not None)
         try:
