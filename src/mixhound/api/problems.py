@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse, Response
 
+from mixhound.services.errors import ConflictError, InvalidInputError, NotFoundError
+
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 
@@ -66,7 +68,22 @@ async def _validation_error(request: Request, exc: Exception) -> Response:
     )
 
 
+# Expected application failures and their HTTP status, most specific first.
+_ERROR_STATUSES: tuple[tuple[type[Exception], int], ...] = (
+    (NotFoundError, 404),
+    (ConflictError, 409),
+    (InvalidInputError, 422),
+)
+
+
+async def _application_error(request: Request, exc: Exception) -> Response:
+    status = next(code for kind, code in _ERROR_STATUSES if isinstance(exc, kind))
+    return problem_response(status, detail=str(exc), instance=request.url.path)
+
+
 def register_error_handlers(application: FastAPI) -> None:
-    """Render HTTP and validation errors as problem details."""
+    """Render HTTP, validation and expected application errors as problem details."""
     application.add_exception_handler(HTTPException, _http_error)
     application.add_exception_handler(RequestValidationError, _validation_error)
+    for kind, _ in _ERROR_STATUSES:
+        application.add_exception_handler(kind, _application_error)

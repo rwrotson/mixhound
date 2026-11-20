@@ -235,6 +235,10 @@ class RunQueue(Protocol):
         """Whether a job is queued or running."""
         ...
 
+    def queued(self) -> list[UUID]:
+        """Return the jobs waiting to start, next first."""
+        ...
+
     async def close(self) -> None:
         """Stop accepting jobs, drop queued ones and cancel the running one."""
         ...

@@ -9,9 +9,13 @@ from fastapi.routing import APIRoute
 
 from mixhound.api.health import router as health_router
 from mixhound.api.problems import register_error_handlers
+from mixhound.api.providers import router as providers_router
+from mixhound.api.runs import router as runs_router
+from mixhound.api.sessions import router as sessions_router
 from mixhound.config import ApiSettings
 
 DISTRIBUTION = "mixhound"
+API_PREFIX = "/api/v1"
 
 Lifespan = Callable[[], AbstractAsyncContextManager[Any]]
 
@@ -47,4 +51,6 @@ def build_api(settings: ApiSettings, resources: Lifespan) -> FastAPI:
         )
     register_error_handlers(application)
     application.include_router(health_router)
+    for router in (sessions_router, runs_router, providers_router):
+        application.include_router(router, prefix=API_PREFIX)
     return application

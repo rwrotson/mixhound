@@ -69,7 +69,9 @@ async def test_cancel_drops_queued_jobs_and_stops_the_running_one() -> None:
     await queue.submit(waiting, later)
     await started.wait()
 
+    assert queue.queued() == [waiting]
     assert await queue.cancel(waiting)
+    assert queue.queued() == []
     assert await queue.cancel(running)
     assert not await queue.cancel(uuid4())
     assert queue.worker is not None

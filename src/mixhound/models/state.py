@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -14,3 +16,20 @@ class RunProgress(BaseModel):
     searches: int = 0
     # Candidates the research has written to its interim notes so far.
     candidates: int = 0
+
+
+TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
+
+
+class RunStatusEvent(BaseModel):
+    """A change of a run's status, as reported to clients."""
+
+    status: Literal["queued", "running", "completed", "failed", "cancelled"]
+    # Place in the queue for a queued run, 1 being the next to start; 0 otherwise.
+    position: int = 0
+    failure_code: str | None = None
+
+    @property
+    def terminal(self) -> bool:
+        """Whether the run has finished."""
+        return self.status in TERMINAL_STATUSES

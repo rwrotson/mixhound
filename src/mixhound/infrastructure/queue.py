@@ -30,6 +30,10 @@ class AsyncioRunQueue:
         """Whether a job is queued or running."""
         return run_id == self.active or any(item == run_id for item, _ in self.pending)
 
+    def queued(self) -> list[UUID]:
+        """Return the jobs waiting to start, next first."""
+        return [run_id for run_id, _ in self.pending]
+
     async def submit(self, run_id: UUID, job: Job) -> int:
         """Queue a job and return its position, 1 being the next to start."""
         if self.closing:
