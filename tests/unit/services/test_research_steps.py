@@ -1,8 +1,8 @@
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
 
+from mixhound.config import PACKAGED_SKILLS_DIR
 from mixhound.infrastructure.cache import MemoryCache
 from mixhound.infrastructure.skills import load_catalog
 from mixhound.memory.context import RunHistory
@@ -34,7 +34,7 @@ from tests.fakes import FakeAgents, FakeCatalog, FakeFetch, Outcome, Reply
 from tests.support.agentic import workspace
 from tests.support.factories import candidate
 
-SKILLS = load_catalog(Path(__file__).parents[3] / ".agents" / "skills")
+SKILLS = load_catalog(PACKAGED_SKILLS_DIR)
 PROFILE = SonicProfile(summary="Dusty, slow, brushed")
 
 

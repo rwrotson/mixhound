@@ -1,5 +1,4 @@
-from pathlib import Path
-
+from mixhound.config import PACKAGED_SKILLS_DIR
 from mixhound.infrastructure.cache import MemoryCache
 from mixhound.infrastructure.skills import load_catalog
 from mixhound.memory.context import RunHistory
@@ -20,7 +19,7 @@ from mixhound.services.seed import Seeder
 from mixhound.services.verification import ResultVerifier
 from tests.fakes import FakeAgents, FakeCatalog, FakeFetch, Outcome
 
-SKILLS = load_catalog(Path(__file__).parents[2] / ".agents" / "skills")
+SKILLS = load_catalog(PACKAGED_SKILLS_DIR)
 HISTORY = RunHistory(runs=[], tracks=[])
 REVIEW = "https://reviews.example/duster-echo"
 

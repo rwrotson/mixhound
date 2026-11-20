@@ -6,8 +6,6 @@ from pathlib import Path
 import pytest
 import structlog
 
-SKILLS_DIR = Path(__file__).parents[1] / ".agents" / "skills"
-
 
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -15,8 +13,6 @@ def isolated_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     for name in list(os.environ):
         if name.startswith("MIXHOUND_"):
             monkeypatch.delenv(name)
-    # Tests run from a temporary directory; the repository skills stay reachable.
-    monkeypatch.setenv("MIXHOUND_SKILLS_DIR", str(SKILLS_DIR))
     monkeypatch.chdir(tmp_path)
 
 

@@ -5,6 +5,13 @@ import pytest
 from pydantic import ValidationError
 
 from mixhound.config import LogSettings, Settings, env_fields, load_settings
+from mixhound.infrastructure.skills import load_catalog
+from mixhound.services.skills import (
+    LINK_SEARCH_SKILL,
+    ORCHESTRATION_SKILL,
+    PROFILE_SKILL,
+    RESEARCH_SKILL,
+)
 
 ENV_EXAMPLE = Path(__file__).parents[2] / ".env.example"
 
@@ -15,6 +22,17 @@ def test_settings_use_code_defaults() -> None:
     assert settings.log.level == "INFO"
     assert settings.log.format == "console"
     assert settings.log.dir is None
+
+
+def test_default_skills_dir_holds_the_packaged_skills() -> None:
+    catalog = load_catalog(load_settings().skills_dir)
+
+    assert set(catalog.skills) >= {
+        RESEARCH_SKILL,
+        PROFILE_SKILL,
+        LINK_SEARCH_SKILL,
+        ORCHESTRATION_SKILL,
+    }
 
 
 def test_nested_environment_variables(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -1,5 +1,4 @@
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
@@ -13,6 +12,7 @@ from evals.cases import CaseMetadata, DiscoveryCase, RunOutcome
 from evals.evaluators import default_evaluators
 from evals.task import DiscoveryTask, apply_overrides
 from mixhound.agents.runner import PydanticResearchAgents
+from mixhound.config import PACKAGED_SKILLS_DIR
 from mixhound.infrastructure.cache import MemoryCache
 from mixhound.infrastructure.skills import load_catalog
 from mixhound.models.domain import DiscoverySettings, SonicProfile
@@ -30,7 +30,7 @@ from tests.support.agents import FakeSearch
 from tests.support.evals import case
 from tests.support.factories import candidate
 
-SKILLS = load_catalog(Path(__file__).parents[3] / ".agents" / "skills")
+SKILLS = load_catalog(PACKAGED_SKILLS_DIR)
 REVIEW = "https://reviews.example/low-words"
 GUESSED = "https://guessed.example/low-words"
 WORDS = CatalogRecording(

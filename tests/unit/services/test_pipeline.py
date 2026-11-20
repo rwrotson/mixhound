@@ -1,10 +1,10 @@
 import asyncio
 from collections.abc import Awaitable, Callable
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
 
+from mixhound.config import PACKAGED_SKILLS_DIR
 from mixhound.infrastructure.cache import MemoryCache
 from mixhound.infrastructure.skills import load_catalog
 from mixhound.memory.context import RunHistory
@@ -29,7 +29,7 @@ from mixhound.services.verification import ResultVerifier
 from tests.fakes import FakeAgents, FakeCatalog, FakeFetch, Outcome
 from tests.support.factories import candidate
 
-SKILLS = load_catalog(Path(__file__).parents[3] / ".agents" / "skills")
+SKILLS = load_catalog(PACKAGED_SKILLS_DIR)
 REVIEW = "https://reviews.example/low-words"
 TRACK_PAGE = "https://low.bandcamp.com/track/words"
 WORDS = CatalogRecording(

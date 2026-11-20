@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable
 
 FROM base AS development
-ENV PATH="/app/.venv/bin:$PATH" MIXHOUND_SKILLS_DIR=/app/.agents/skills
+ENV PATH="/app/.venv/bin:$PATH"
 # ffmpeg decodes preview clips for audio similarity.
 # git lets uv clone the deadwax git dependency.
 RUN apt-get update && apt-get install --yes --no-install-recommends ffmpeg git \
@@ -33,7 +33,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-install-project
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
-COPY .agents ./.agents
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked
 CMD ["uvicorn", "mixhound.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src", "--no-access-log"]
@@ -46,13 +45,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install --yes --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/.venv /app/.venv
-COPY .agents /app/.agents
 # pip is unused at runtime; its bundled SBOM lists vendored libraries that scanners flag.
 RUN python -m pip uninstall --yes --root-user-action=ignore pip \
     && useradd --system --uid 10001 --create-home --home-dir /home/app app \
     && mkdir -p /data && chown 10001 /data
 ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    HOME=/home/app MIXHOUND_SKILLS_DIR=/app/.agents/skills MIXHOUND_DATA_DIR=/data \
+    HOME=/home/app MIXHOUND_DATA_DIR=/data \
     NUMBA_CACHE_DIR=/data/numba-cache
 USER 10001
 EXPOSE 8000

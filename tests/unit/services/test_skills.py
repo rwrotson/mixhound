@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from mixhound.config import PACKAGED_SKILLS_DIR
 from mixhound.infrastructure.skills import load_catalog
 from mixhound.services.errors import NotFoundError
 from mixhound.services.skills import (
@@ -13,7 +14,7 @@ from mixhound.services.skills import (
     parse_skill,
 )
 
-SKILLS = Path(__file__).parents[3] / ".agents" / "skills"
+SKILLS = PACKAGED_SKILLS_DIR
 
 
 def skill_text(front_matter: str, body: str = "# Body\n") -> str:

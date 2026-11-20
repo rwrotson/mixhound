@@ -37,7 +37,7 @@ repos:
         # A broad .gitignore pattern can hide new modules from git, and CI never sees them.
         entry: >-
           bash -c 'files=$(git ls-files --others --ignored --exclude-standard --
-          "src/*.py" "tests/*.py" "evals/*.py" ".agents/skills/*");
+          "src/*.py" "tests/*.py" "evals/*.py" "src/mixhound/skills/*");
           [ -z "$files" ] || { echo "Ignored by .gitignore:"; echo "$files"; exit 1; }'
         language: system
         pass_filenames: false

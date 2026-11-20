@@ -34,7 +34,7 @@ Flow: interface (FastAPI, later CLI or a background worker) → agent runtime (`
 - `memory/` holds session/run repositories (ports) and run context built from history and feedback.
 - `models/` are Pydantic schemas: domain objects, LLM output schemas, API requests/responses, run state.
 - `infrastructure/` implements ports: HTTP clients, catalogs, web search, LLM model factory, storage adapters (in-memory and JSON files now; PostgreSQL/Redis later behind the same ports), logging.
-- `.agents/skills/<name>/SKILL.md` follows the agentskills.io specification and holds every agent instruction; there is no separate prompts directory.
+- `src/mixhound/skills/<name>/SKILL.md` follows the agentskills.io specification and holds every agent instruction; there is no separate prompts directory. Skills ship inside the package, so the wheel and the image are self-contained.
 
 Rules:
 

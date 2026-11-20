@@ -7,6 +7,7 @@ from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_PREFIX = "MIXHOUND_"
+PACKAGED_SKILLS_DIR = Path(__file__).resolve().parent / "skills"
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
@@ -171,7 +172,8 @@ class Settings(BaseSettings):
         default=Path("data"), description="Directory of stored runs, caches and diagnostics"
     )
     skills_dir: Path = Field(
-        default=Path(".agents/skills"), description="Directory of agent skills"
+        default=PACKAGED_SKILLS_DIR,
+        description="Directory of agent skills; defaults to the skills shipped with the package",
     )
     log: LogSettings = Field(default_factory=LogSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
