@@ -14,7 +14,7 @@ dependencies = [
     "anthropic>=2.11.0",
     "anyio>=4.16.0",
     "claude-agent-sdk>=0.2.186",
-    "deadwax",
+    "deadwax @ git+https://github.com/rwrotson/deadwax@v0.1.0",
     "fastapi>=0.120.0",
     "httpx>=0.28.1",
     "httpx2>=2.16.2",
@@ -71,8 +71,6 @@ constraint-dependencies = [
 module-name = "mixhound"
 module-root = "src"
 
-[tool.uv.sources]
-deadwax = { git = "https://github.com/rwrotson/deadwax", tag = "v0.1.0" }
 
 # PYTEST -----------------------------------------------------------------------
 [tool.pytest.ini_options]

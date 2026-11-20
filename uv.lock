@@ -529,7 +529,7 @@ wheels = [
 [[package]]
 name = "deadwax"
 version = "0.1.0"
-source = { git = "https://github.com/rwrotson/deadwax?tag=v0.1.0#38435d94d25a3370a62700565b4e8b9391371f90" }
+source = { git = "https://github.com/rwrotson/deadwax?rev=v0.1.0#38435d94d25a3370a62700565b4e8b9391371f90" }
 dependencies = [
     { name = "httpx", extra = ["http2"] },
     { name = "pydantic" },
@@ -1289,7 +1289,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=2.11.0" },
     { name = "anyio", specifier = ">=4.16.0" },
     { name = "claude-agent-sdk", specifier = ">=0.2.186" },
-    { name = "deadwax", git = "https://github.com/rwrotson/deadwax?tag=v0.1.0" },
+    { name = "deadwax", git = "https://github.com/rwrotson/deadwax?rev=v0.1.0" },
     { name = "fastapi", specifier = ">=0.120.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx2", specifier = ">=2.16.2" },
