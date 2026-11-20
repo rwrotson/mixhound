@@ -48,6 +48,10 @@ dev = [
     "ruff>=0.16.10",
     "types-pyyaml>=6.0.12.20261113",
 ]
+evals = [
+    "opentelemetry-sdk>=1.45.2",
+    "pydantic-evals==2.71.0",
+]
 
 # BUILD BACKEND ----------------------------------------------------------------
 [build-system]
@@ -100,7 +104,7 @@ exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
 python_version = "3.14"
 mypy_path = "src"
 explicit_package_bases = true
-files = ["src", "tests"]
+files = ["src", "tests", "evals"]
 exclude_gitignore = true
 strict = true
 warn_unused_ignores = true
@@ -141,7 +145,7 @@ ban-relative-imports = "all"
 max-complexity = 8
 
 [tool.ruff.lint.isort]
-known-first-party = ["mixhound"]
+known-first-party = ["mixhound", "evals"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -248,6 +252,10 @@ typecheck = "mypy"
 test = "pytest --cov"
 test-fast = "pytest"
 check = ["fmt-check", "lint", "lint-imports", "typecheck", "test"]
+
+[tool.poe.tasks.evals]
+cmd = "python -m evals"
+help = "Run discovery evals with real models (spends credits); see evals/README.md"
 
 [tool.poe.tasks.audit]
 shell = """

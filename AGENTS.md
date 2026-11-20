@@ -12,6 +12,7 @@ uv run poe test-fast        # pytest without coverage
 uv run pytest tests/unit/test_config.py::test_env_example_documents_every_setting
 uv run pytest --randomly-seed=1234  # reproduce an order-dependent failure
 uv run poe audit            # pip-audit of the locked dependencies
+uv run poe evals run        # opt-in discovery evals with real models (evals/README.md)
 docker build --target production -t mixhound .
 ```
 

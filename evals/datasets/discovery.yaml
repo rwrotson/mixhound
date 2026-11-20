@@ -1,0 +1,248 @@
+# yaml-language-server: $schema=discovery_schema.json
+name: discovery
+cases:
+- name: psych
+  inputs:
+    instructions: 'Песни в стиле поп-психоделии 60-х годов -- хиппи, LSD, солнце, цветы -- но в более
+      современном звуке, приближенном к инди-року. Меланхоличное, немного грустное, но преимущественно
+      светлое настроение, мечтательность. Действительно хитовые, не обязательно суперпопулярные, но с
+      изысканной аранжировкой, и небанальным сонграйтингом. Возможно, отклоняющаяся от стандартной, усложненная
+      структура. Психоделичные гитары, хорошо скомпрессированные ударные и бас, клависин очень желателен.
+      Нарядный солнечный звук: возможны клавишные, скрипки, оркестр или синтезатор как подложка, легкое
+      или умеренное наличие реверба и/или хоруса. Легко обработанный эффектами вокал. Отдаленно обыгрывается
+      звук, похожий на стену звука Фила Спектора, сильные ретро-вайбы. Скорее всего много подобного в
+      инди-роке 10-х, а-ля трендовые альбомы Pitchfork того времени, но пойдут и любые записи нулевых
+      годов и позже.'
+    settings:
+      year_from: 1990
+      exclude_reference_artists: true
+    references:
+    - kind: manual
+      artist: Foxygen
+      title: San Francisco
+      polarity: positive
+      priority: 5
+      album: We Are the 21st Century Ambassadors of Peace & Magic
+      year: 2013
+    - kind: manual
+      artist: Jacco Gardner
+      title: Clear the Air
+      polarity: positive
+      priority: 4
+      album: Cabinet of Curiosities
+      year: 2013
+    - kind: manual
+      artist: Mild High Club
+      title: Homage
+      polarity: positive
+      priority: 4
+      album: Skiptracing
+      year: 2016
+    - kind: manual
+      artist: Evan Wright
+      title: People
+      polarity: positive
+      priority: 5
+      album: Sound from out the Window
+      year: 2021
+    - kind: manual
+      artist: MGMT
+      title: Nothing Changes
+      polarity: positive
+      priority: 4
+      album: Loss Of Life
+      year: 2024
+    - kind: manual
+      artist: Bee Gees
+      title: I Started A Joke
+      polarity: positive
+      priority: 5
+      album: Timeless - The All-Time Greatest Hits
+      year: 2017
+    - kind: manual
+      artist: Love
+      title: The Good Humor Man He Sees Everything Like This
+      polarity: positive
+      priority: 4
+      album: Forever Changes (2015 Remaster)
+      year: 2015
+    - kind: manual
+      artist: The Kinks
+      title: Waterloo Sunset
+      polarity: positive
+      priority: 5
+      album: Something Else (Deluxe)
+      year: 2011
+    - kind: manual
+      artist: Andrew Oldham Orchestra
+      title: The Last Time
+      polarity: positive
+      priority: 5
+      album: The Rolling Stones Songbook
+      year: 2015
+    - kind: manual
+      artist: Scott McKenzie
+      title: San Francisco (Be Sure to Wear Flowers In Your Hair)
+      polarity: positive
+      priority: 5
+      album: Forrest Gump - The Soundtrack
+      year: 2012
+    - kind: manual
+      artist: Tame Impala
+      title: Feels Like We Only Go Backwards
+      polarity: positive
+      priority: 4
+      album: Lonerism
+      year: 2014
+  metadata:
+    source: mixtable server/tools/discovery_eval_fixtures.json
+  expected_output: null
+  evaluators: []
+- name: noch
+  inputs:
+    instructions: 'андерграунд, экспериментальная сцена. медленная, но ритмичная инструментальная музыка,
+      по большей части живые инструменты, гитарный бас -- ведущий инструмент. минимализм, глуховатый звук
+      с обилием реверба. ударные -- драм-машина или ударник, чем-то похожий на нее. возможно отдаленное
+      влияние пост-панка и даба, использование электронных инструментов. gloomy atmosphere. исполнитель
+      имеет какое-то отношение к россии в широком смысле, ссср / снг тоже принимается. главный референс:
+      альбом "курорты кавказа" группы "ночной проспект". возможно, много что получится найти, если покопать
+      вглубь музыку, имеющую отношение к лейблу Gost Zvuk и его пространству Наука и искусство -- не обязательно
+      релизы с этого лейбла (там обычно более электронная или абстрактная музыка) -- возможно в рассказах
+      или миксах людей, связанных с этим лейблом.'
+    settings:
+      year_from: 1980
+      exclude_reference_artists: true
+    references:
+    - kind: manual
+      artist: Стук Бамбука в XI Часов
+      title: La cheval de ma vie
+      polarity: positive
+      priority: 5
+      album: Легкое Дело Холод
+      year: 1991
+    - kind: manual
+      artist: Inturist
+      title: Birdwatching
+      polarity: positive
+      priority: 4
+      album: Birdwatching
+      year: 2025
+    - kind: manual
+      artist: Margenrot
+      title: Обход / Obkhod
+      polarity: positive
+      priority: 5
+      album: Obkhod
+      year: 2021
+    - kind: manual
+      artist: Mlin Patz
+      title: Avgust Na Zakate Dnya
+      polarity: positive
+      priority: 5
+      album: Sunlimit
+      year: 2019
+    - kind: manual
+      artist: Pavel Milyakov, Yana Pavlova
+      title: Za Horamy
+      polarity: positive
+      priority: 4
+      album: Blue
+      year: 2021
+    - kind: manual
+      artist: Nochnoy Prospekt
+      title: From The Depth
+      polarity: positive
+      priority: 5
+      album: Health Resorts of the Caucasus
+      year: 2019
+    - kind: manual
+      artist: Учитель Ботаники
+      title: Чёрный горизонт
+      polarity: positive
+      priority: 3
+      album: Атмосферная музыка (Bootleg) [Репетиционные записи март-июнь 2003]
+      year: 2021
+    - kind: manual
+      artist: Nochnoy Prospekt
+      title: This Night
+      polarity: positive
+      priority: 5
+      album: Health Resorts of the Caucasus
+      year: 2019
+    - kind: manual
+      artist: KP Transmission
+      title: Mamleevskiy Oskal
+      polarity: positive
+      priority: 5
+      album: Temnoe Poznaetsya Chernim
+      year: 2016
+  metadata:
+    source: mixtable server/tools/discovery_eval_fixtures.json
+  expected_output: null
+  evaluators: []
+- name: slowcore-strict
+  inputs:
+    instructions: слоукор 90-х, 00-х, максимально строгий, не попсовый, не американа / кантри вайбы
+    settings:
+      year_from: 1990
+      year_to: 2008
+      exclude_reference_artists: true
+    references:
+    - kind: manual
+      artist: Talk Talk
+      title: I Believe in You
+      polarity: positive
+      priority: 3
+    - kind: manual
+      artist: Slowdive
+      title: Blue Skied An' Clear
+      polarity: positive
+      priority: 5
+    - kind: manual
+      artist: Bowery Electric
+      title: Inside Out
+      polarity: positive
+      priority: 3
+    - kind: manual
+      artist: Low
+      title: Words
+      polarity: positive
+      priority: 5
+    - kind: manual
+      artist: Bark Psychosis
+      title: A Street Scene
+      polarity: positive
+      priority: 4
+    - kind: manual
+      artist: Bluetile Lounge
+      title: Wriding
+      polarity: positive
+      priority: 4
+    - kind: manual
+      artist: Slint
+      title: Washer
+      polarity: positive
+      priority: 3
+    - kind: manual
+      artist: Valium Aggelein
+      title: The Clouds Will Drop Ladders
+      polarity: positive
+      priority: 3
+    - kind: manual
+      artist: Codeine
+      title: D
+      polarity: positive
+      priority: 5
+    - kind: manual
+      artist: Coastal
+      title: Ivy
+      polarity: positive
+      priority: 4
+      album: Coastal
+      year: 2001
+  metadata:
+    source: mixtable server/tools/discovery_eval_fixtures.json
+  expected_output: null
+  evaluators: []
+evaluators: []
+report_evaluators: []
